@@ -1,4 +1,8 @@
 use xcb::{x, Xid};
+
+mod input;
+mod capture;
+mod network;
 fn main() -> () {
     let (conn, screen_num) = xcb::Connection::connect(None).unwrap();
 
