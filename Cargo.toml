@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 futures = "0.3.28"
-rdev = { version = "0.5.2", features = ["unstable_grab"]}
+rdev = { version = "0.5.2", features = ["unstable_grab", "serialize"]}
 
 
 tokio = {version = "1.28.2", features = ["net", "rt", "macros", "rt-multi-thread"]}
