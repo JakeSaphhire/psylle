@@ -29,9 +29,12 @@ impl Client {
         let mut mainframe = UdpFramed::new(mainsocket, BytesCodec::new());
 
         let (tx, rx) = mpsc::channel();
+
+        println!("About to enter loop");
         
         loop {
             // Alternative! Use listen instead of grab...
+            println!("Looping");
             let callback_tx = tx.clone();
             let callback = move | event: Event| -> Option<Event> {
                 match event.event_type {
@@ -48,7 +51,7 @@ impl Client {
                         println!("Grabbing error: {:?}", e);
                     }
                     unsafe{
-                        if EXIT == true {()}
+                        if EXIT == true {return}
                     }
                     while let Ok(event) = rx.recv() {
                         // Send event on the network immediately
@@ -73,5 +76,6 @@ impl Client {
                 }, 
             }   
         }
+        
     }
 }

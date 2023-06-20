@@ -10,11 +10,11 @@ use std::env;
 async fn main() -> () {
   let args: Vec<String> = env::args().collect();
   let mut port: u16 = 4000;
-  if args[1] == "--p" {
+  if args[1] == "-port" {
     port = args[2].parse().unwrap();
   }
 
-  let mut client = Client::new();
+  let client = Client::new();
+  println!("Spawned client {:?} on port {} ", client, port);
   client.setup_msg(port).await;
-  client.capture().await;
 }
