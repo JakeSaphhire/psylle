@@ -1,4 +1,3 @@
-use local_ip_address::linux::local_ip;
 // The netcode is divided into two parts.
 use serde::{Serialize, Deserialize};
 use postcard::{from_bytes, to_vec, to_allocvec};
@@ -6,7 +5,7 @@ use bytes::Bytes;
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use tokio::task::JoinHandle;
-use local_ip_address;
+use local_ip_address::local_ip;
 
 use std::sync::{Arc, Mutex};
 use std::{thread, time};
