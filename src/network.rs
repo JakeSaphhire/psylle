@@ -20,7 +20,7 @@ use rdev::EventType;
 // with 2 types: sender, receiver. both holding a udpframed struct
 
 #[derive(Debug, Copy, Clone)]
-enum State {
+pub enum State {
     Master,
     Slave
 }
@@ -28,10 +28,10 @@ enum State {
 // Note!! Peer and state updating could be done through a channel instead
 // Client structure, shared amongst thread boundaries of the messaging thread and the capture/network
 pub struct Client {
-    state: Arc<Mutex<State>>,
-    target: Arc<Mutex<usize>>, 
-    peers: Arc<Mutex<Vec<SocketAddr>>>, 
-    events: VecDeque<EventType>,
+    pub state: Arc<Mutex<State>>,
+    pub target: Arc<Mutex<usize>>, 
+    pub peers: Arc<Mutex<Vec<SocketAddr>>>, 
+    pub events: VecDeque<EventType>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -46,16 +46,17 @@ pub enum Message {
 impl Client {
 
     // Client Constructor method
-    async fn new() -> Client {
+    pub fn new() -> Client {
         // All Clients start as master, they downgrade to slave as soon as other peers are found
         Client { state: Arc::new(Mutex::new(State::Master)), target: Arc::new(Mutex::new(0)), peers: Arc::new(Mutex::new(Vec::<SocketAddr>::new())), events: VecDeque::new()}
     }
     // Setup the messaging system to find peers
     // and splits it into a different thread
-    async fn setup_msg(&self) -> JoinHandle<()> {
+    // TODO: Add port selection argument
+    pub async fn setup_msg(&self, port: u16) -> JoinHandle<()> {
 
-        let msgsocket = UdpSocket::bind("127.0.0.1:4000").await.expect("cannot bind free");
-        let broadcast_addr : SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(255, 255, 255, 255)), 4000);
+        let msgsocket = UdpSocket::bind("127.0.0.1:4000").await.expect("Cannot bind");
+        let broadcast_addr : SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(255, 255, 255, 255)), port);
         msgsocket.set_broadcast(true).expect("Unable to set broadcast onser");
         
         let mut msgframe = UdpFramed::new(msgsocket, BytesCodec::new());
@@ -114,9 +115,5 @@ impl Client {
                     }
                 }
             })
-    }
-
-    pub fn process()  -> () {
-
     }
 }
