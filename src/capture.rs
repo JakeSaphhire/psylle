@@ -39,9 +39,8 @@ impl Client {
                 match event.event_type {
                     EventType::KeyPress(Key::Escape) => {unsafe{EXIT = true}; Some(event)},
                     _ => {
-                        println!("Grabbed {:?} ", event);
+                        // println!("Grabbed {:?} ", event);
                         callback_tx.send(event.clone()).unwrap();
-                        println!("Sent event");
                         Some(event)
                     },
                 }
@@ -68,14 +67,12 @@ impl Client {
                     if let Some(Ok((bytes, _peer_addr))) = mainframe.next().await {
                         //  Deserialize and Simulate the event
                         // send(&event) etc...
-                        let del = time::Duration::from_millis(20);
                         match simulate(&serde_json::from_slice::<Event>(&bytes[..]).unwrap().event_type) {
                             Ok(()) => (), 
                             Err(SimulateError) => {
                                 println!("Could not send event");
                             }
                         }
-                        thread::sleep(del);
                     }
                 }, 
             }   
