@@ -1,7 +1,9 @@
 mod capture;
 mod network;
 
+use futures::try_join;
 use tokio::runtime;
+use tokio::join;
 use network::Client;
 
 use std::env;
@@ -14,7 +16,10 @@ async fn main() -> () {
     port = args[2].parse().unwrap();
   }
 
-  let client = Client::new();
+  let mut client = Client::new();
   println!("Spawned client {:?} on port {} ", client, port);
-  client.setup_msg(port).await;
+  let messager = client.setup_msg(port);
+  let capturer = client.capture();
+
+  join!(messager, capturer);
 }

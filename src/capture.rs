@@ -5,12 +5,13 @@ use serde::{Serialize, Deserialize};
 use postcard::{from_bytes, to_vec, to_allocvec};
 use bytes::Bytes;
 
-use tokio::task::JoinHandle;
+use tokio::task::{JoinHandle, self};
+use std::net::SocketAddr;
 use tokio::net::UdpSocket;
 use tokio_util::{udp::UdpFramed, codec::BytesCodec};
 use tokio_stream::StreamExt;
 
-use std::sync::mpsc;
+use tokio::sync::mpsc;
 use std::cell::RefCell;
 use std::{thread, time};
 use crate::network::{Client, Message, State};
@@ -18,54 +19,57 @@ use crate::network::{Client, Message, State};
 
 impl Client {
     // must be called after messaging is setup
-    pub async fn capture(&mut self) -> () {
+    pub async fn capture(&self) -> () {
         // See https://github.com/Narsil/rdev/issues/101#issuecomment-1500698317 and 
         // and https://github.com/jersou/mouse-actions/blob/7bd717d32408d1b836e031531f1d051b51957e04/src/main.rs#L33
         thread::sleep(time::Duration::from_millis(300));
         static mut EXIT: bool = false;
 
         // Seup main socket
-        let mainsocket = UdpSocket::bind("127.0.0.1:4001").await.expect("Cannot bind main socket");
+        let mainsocket = UdpSocket::bind("0.0.0.0:4001").await.expect("Cannot bind main socket");
         let mut mainframe = UdpFramed::new(mainsocket, BytesCodec::new());
 
-        let (tx, rx) = mpsc::channel();
+        let (tx, mut rx) = mpsc::unbounded_channel();
 
-        println!("About to enter loop");
-        
-        loop {
-            // Alternative! Use listen instead of grab...
-            println!("Looping");
-            let callback_tx = tx.clone();
-            let callback = move | event: Event| -> Option<Event> {
+        println!("Spawning Capture Thread");
+        // Alternative! Use listen instead of grab...
+        let callback_tx = tx.clone();
+        thread::spawn(move || {
+            grab(move | event: Event| -> Option<Event> {
                 match event.event_type {
                     EventType::KeyPress(Key::Escape) => {unsafe{EXIT = true}; Some(event)},
                     _ => {
-                        callback_tx.send(event.event_type).unwrap();             
-                        None
+                        println!("Grabbed {:?} ", event);
+                        callback_tx.send(event.clone()).unwrap();
+                        println!("Sent event");
+                        Some(event)
                     },
                 }
-            }; 
+            }).unwrap();
+        });
+        
+        loop {
+            
             match *self.state.lock().unwrap() {
                 State::Master => {
-                    if let Err(e) = grab(callback) {
-                        println!("Grabbing error: {:?}", e);
-                    }
-                    unsafe{
-                        if EXIT == true {return}
-                    }
-                    while let Ok(event) = rx.recv() {
+                    print!("Receiving event");
+                    while let Some(event) = rx.recv().await {
+                        println!(" {:?} on the loop thread", event);
                         // Send event on the network immediately
                         let index = *self.target.lock().unwrap();
                         let peers = self.peers.lock().unwrap();
-                        mainframe.send((Bytes::from(to_allocvec(&event).unwrap()), peers[index])).await.unwrap();
+                        println!("Sending {:?} to {} ", serde_json::to_string(&event).unwrap(), peers[index]);
+                        mainframe.send((Bytes::from(serde_json::to_vec(&event).unwrap()), SocketAddr::new(peers[index], 4001))).await.unwrap();
+                        
                     }
+                print!(">> One event");
                 },
                 State::Slave => {
                     if let Some(Ok((bytes, _peer_addr))) = mainframe.next().await {
                         //  Deserialize and Simulate the event
                         // send(&event) etc...
                         let del = time::Duration::from_millis(20);
-                        match simulate(&from_bytes::<Event>(&bytes[..]).unwrap().event_type) {
+                        match simulate(&serde_json::from_slice::<Event>(&bytes[..]).unwrap().event_type) {
                             Ok(()) => (), 
                             Err(SimulateError) => {
                                 println!("Could not send event");
