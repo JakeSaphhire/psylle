@@ -34,7 +34,7 @@ impl Client {
                         (EventType::KeyRelease(Key::ScrollLock), false, _) => {PAUSE = !PAUSE;},
                         (EventType::KeyRelease(Key::Escape), false, _) => {EXIT = true;},
                         (EventType::MouseMove { x, y }, false, false) => {
-                            event.event_type  = rdev::EventType::MouseMove {x: x, y: y - 2.0*SSO as f64};
+                            event.event_type  = rdev::EventType::MouseMove {x: x - 2.0*SSO as f64, y: y};
                             callback_tx.send(event.clone()).unwrap();
                         },
                             
@@ -72,10 +72,10 @@ impl Client {
                 },
                 State::Slave => {
                     let mut receive_buffer = vec![0u8; 1024];
-                    if let Ok((_size, _peer_addr)) = mainsocket.try_recv_from(&mut receive_buffer) {
+                    if let Ok((size, _peer_addr)) = mainsocket.try_recv_from(&mut receive_buffer) {
                         // Deserialize and Simulate the event
                         // send(&event) etc...
-                        match simulate(&serde_json::from_slice::<Event>(&receive_buffer[..]).unwrap().event_type) {
+                        match simulate(&serde_json::from_slice::<Event>(&receive_buffer[0..size]).unwrap().event_type) {
                             Ok(()) => (), 
                             Err(SimulateError) => {
                                 println!("Could not send event");
