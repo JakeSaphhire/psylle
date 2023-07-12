@@ -1,16 +1,14 @@
 // The netcode is divided into two parts.
 use serde::{Serialize, Deserialize};
-use postcard::{from_bytes, to_vec, to_allocvec};
 use bytes::Bytes;
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use tokio::task::JoinHandle;
 use local_ip_address::local_ip;
 
 use std::sync::{Arc, Mutex};
 use std::{thread, time};
 use std::collections::VecDeque;
-use futures::{FutureExt, SinkExt};
+use futures::{SinkExt};
 
 use tokio::net::UdpSocket;
 use tokio_util::{udp::UdpFramed, codec::BytesCodec};
@@ -44,7 +42,7 @@ pub enum Message {
 }
 // todo: udpframed
 // todo: serde
-
+pub static mut EXIT: bool = false;
 impl Client {
 
     // Client Constructor method
@@ -98,11 +96,11 @@ impl Client {
                                         let state = clone_state.lock().unwrap();
                                         cstate = *state;
                                     }
-    
+                                    /*
                                     match cstate {
                                         State::Slave => { ;/* Do nothing */},
                                         State::Master => { msgframe.send((Bytes::from(serde_json::to_vec(&Message::TakeControl).unwrap()), peer_addr)).await.unwrap(); },
-                                    }
+                                    }*/
                                 },
                             Message::DiscoveryResponse => {
                                     // Send peer_addr to vectors of peers
@@ -117,23 +115,24 @@ impl Client {
                                     // If a slave receives a takecontrol command, transfer ownership of that slave to the new addr
                                     // to do so, change target value to match the index of the Message::TakeControl sender
                                     let mut state = clone_state.lock().unwrap();
-                                    match *state {
-                                        State::Slave => { /* Do Nothing */},
-                                        State::Master => {*state = State::Slave},
-                                    }
-                                    drop(state);
+                                    *state = State::Slave;
                                     
                                     if let Some(index) = clone_peers.lock().unwrap().iter().position(|&addr| addr == peer_addr.ip()) {
                                         *(clone_tgt.lock().unwrap()) = index;
                                     } else {
                                         clone_peers.lock().unwrap().push(peer_addr.ip());
                                     }
-                                    
+                                    println!("Changed control");
                                 }
                         }
-                    }
+                        unsafe {
+                            if EXIT == true {
+                                println!("Cancelling task");
+                                return;
+                            }
+                        }  
+                    }  
                 }
-                
             }).await.unwrap();
     }
 }
